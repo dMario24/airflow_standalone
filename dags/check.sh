@@ -1,10 +1,6 @@
 #!/bin/bash
 
-YYYYMMDD=$1
-
-echo "check"
-DONE_PATH=~/data/done/${YYYYMMDD}           
-DONE_PATH_FILE="${DONE_PATH}/_DONE"
+DONE_PATH_FILE=$1
 
 if [ -e "$DONE_PATH_FILE" ]; then
     figlet "Let's move on"
