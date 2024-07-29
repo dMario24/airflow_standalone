@@ -9,7 +9,10 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.empty import EmptyOperator
 
-from airflow.operators.python import PythonOperator
+from airflow.operators.python import (
+        PythonOperator, 
+        PythonVirtualenvOperator
+)
 
 with DAG(
     'movie',
@@ -55,11 +58,14 @@ with DAG(
 
     run_this = PythonOperator(
             task_id="print_the_context", 
-            python_callable=print_context)
+            python_callable=print_context,
+            )
 
-    get_data = PythonOperator(
+    get_data = PythonVirtualenvOperator(
         task_id='get_data',
-        python_callable=get_data
+        python_callable=get_data,
+        requirements=["git+https://github.com/dMario24/mov.git@0.2/api"],
+        system_site_packages=False,
     )
 
     save_data = BashOperator(
