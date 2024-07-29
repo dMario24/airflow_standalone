@@ -11,7 +11,9 @@ from airflow.operators.empty import EmptyOperator
 
 from airflow.operators.python import (
         PythonOperator, 
-        PythonVirtualenvOperator
+        BranchPythonOperator, 
+        PythonVirtualenvOperator,
+
 )
 
 with DAG(
@@ -55,14 +57,23 @@ with DAG(
         print(ds)
         print("::endgroup::")
         return "Whatever you return gets printed in the logs"
+    
+    def branch_fun(**kwargs):
+        ld = kwargs['ds_nodash']
+        import os
+        if os.path.exists(f'~/tmp/test_parquet/load_dt={ld}'):
+            return rm_dir 
+        else:
+            return get_data
+            
 
-    run_this = PythonOperator(
-            task_id="print_the_context", 
-            python_callable=print_context,
-            )
-
+    branch_op = BranchPythonOperator(
+        task_id="branch.op",
+        python_callable=branch_fun
+    )
+    
     get_data = PythonVirtualenvOperator(
-        task_id='get_data',
+        task_id='get.data',
         python_callable=get_data,
         requirements=["git+https://github.com/dMario24/mov.git@0.2/api"],
         system_site_packages=False,
@@ -72,9 +83,19 @@ with DAG(
         task_id='save_data',
         bash_command='date',
     )
+
+    rm_dir = BashOperator(
+        task_id='rm.dir',
+        bash_command='rm -rf ~/tmp/test_parquet/load_dt={{ ds_nodash }}',
+    )
     
     start = EmptyOperator(task_id='start')
     end = EmptyOperator(task_id='end')
     
-    start >> get_data >> save_data >> end
-    start >> run_this >> end
+    start >> branch_op
+    branch_op >> rm_dir
+    branch_op >> get_data 
+    
+    rm_dir >> get_data
+    get_data >> save_data >> end
+
