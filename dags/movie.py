@@ -23,7 +23,7 @@ with DAG(
         'email_on_failure': False,
         'email_on_retry': False,
         'retries': 1,
-        'retry_delay': timedelta(minutes=5)
+        'retry_delay': timedelta(seconds=3)
     },
     description='movie',
     schedule="10 2 * * *",
@@ -32,39 +32,36 @@ with DAG(
     tags=['api', 'movie', 'amt'],
 ) as dag:
 
-    def get_data(ds, **kwargs):
-        print(ds)
-        print(kwargs)
-        print("=" * 20)
-        print(f"ds_nodash => {kwargs['ds_nodash']}")
-        print(f"kwargs type => {type(kwargs)}")
-        print("=" * 20)
-        from mov.api.call import get_key, save2df
-        key = get_key()
-        print(f"MOVIE_API_KEY => {key}")
-        YYYYMMDD = kwargs['ds_nodash'] # 20240724
-        df = save2df(YYYYMMDD)
+    def get_data(ds_nodash):
+        from mov.api.call import save2df
+        df = save2df(ds_nodash)
         print(df.head(5))
 
+    def save_data(ds_nodash):
+        from mov.api.call import apply_type2df
+        
+        df = apply_type2df(load_dt=ds_nodash)
+        
+        print("*" * 33)
+        print(df.head(10))
+        print("*" * 33)
+        print(df.dtypes)
 
-    def print_context(ds=None, **kwargs):
-        """Print the Airflow context and ds variable from the context."""
-        print("::group::All kwargs")
-        pprint(kwargs)
-        print(kwargs)
-        print("::endgroup::")
-        print("::group::Context variable ds")
-        print(ds)
-        print("::endgroup::")
-        return "Whatever you return gets printed in the logs"
+        # 개봉일 기준 그룹핑 누적 관객수 합
+        print("개봉일 기준 그룹핑 누적 관객수 합")
+        g = df.groupby('openDt')
+        sum_df = g.agg({'audiCnt': 'sum'}).reset_index()
+        print(sum_df)
+
     
-    def branch_fun(**kwargs):
-        ld = kwargs['ds_nodash']
+    def branch_fun(ds_nodash):
         import os
-        if os.path.exists(f'~/tmp/test_parquet/load_dt={ld}'):
-            return rm_dir 
+        home_dir = os.path.expanduser("~")
+        path = os.path.join(home_dir, f"tmp/test_parquet/load_dt={ds_nodash}")
+        if os.path.exists(path):
+            return rm_dir.task_id
         else:
-            return get_data
+            return "get.data", "echo.task"
             
 
     branch_op = BranchPythonOperator(
@@ -75,27 +72,46 @@ with DAG(
     get_data = PythonVirtualenvOperator(
         task_id='get.data',
         python_callable=get_data,
-        requirements=["git+https://github.com/dMario24/mov.git@0.2/api"],
+        requirements=["git+https://github.com/dMario24/mov.git@0.3/api"],
         system_site_packages=False,
+        trigger_rule="all_done",
+        #venv_cache_path="/home/diginori/tmp2/air_venv/get_data"
     )
 
-    save_data = BashOperator(
-        task_id='save_data',
-        bash_command='date',
+    save_data = PythonVirtualenvOperator(
+        task_id='save.data',
+        python_callable=save_data,
+        system_site_packages=False,
+        trigger_rule="one_success",
+        requirements=["git+https://github.com/dMario24/mov.git@0.3/api"],
+        #venv_cache_path="/home/diginori/tmp2/air_venv/get_data"
     )
 
     rm_dir = BashOperator(
         task_id='rm.dir',
         bash_command='rm -rf ~/tmp/test_parquet/load_dt={{ ds_nodash }}',
     )
+
+    echo_task = BashOperator(
+        task_id='echo.task',
+        bash_command="echo 'task'"
+    )
     
     start = EmptyOperator(task_id='start')
     end = EmptyOperator(task_id='end')
+    join_task = BashOperator(
+            task_id='join',
+            bash_command="exit 1",
+            trigger_rule="all_done"
+
+    )
     
     start >> branch_op
-    branch_op >> rm_dir
+    start >> join_task >> save_data
+
+    branch_op >> rm_dir >> get_data
+    branch_op >> echo_task >> save_data
     branch_op >> get_data 
-    
-    rm_dir >> get_data
+
     get_data >> save_data >> end
 
