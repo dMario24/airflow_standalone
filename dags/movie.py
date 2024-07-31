@@ -32,21 +32,22 @@ with DAG(
     tags=['api', 'movie', 'amt'],
 ) as dag:
 
-    def get_data(ds_nodash):
-        from mov.api.call import save2df
-        df = save2df(ds_nodash)
-        print(df.head(5))
-
     def common_get_data(ds_nodash, url_param):
+    #def common_get_data(ds_nodash, {"MOVIE_4_KEY": "F"}):
         from mov.api.call import save2df
         df = save2df(load_dt=ds_nodash, url_param=url_param)
+        
         print(df[['movieCd', 'movieNm']].head(5))
         
         for k, v in url_param.items():
             df[k] = v
         
+        #p_cols = list(url_param.keys()).insert(0, 'load_dt')
         p_cols = ['load_dt'] + list(url_param.keys())
-        df.to_parquet('~/tmp/test_parquet', partition_cols=p_cols)
+        df.to_parquet('~/tmp/test_parquet', 
+                partition_cols=p_cols
+                # partition_cols=['load_dt', 'movieKey']
+        )
 
     def save_data(ds_nodash):
         from mov.api.call import apply_type2df
@@ -80,12 +81,6 @@ with DAG(
         python_callable=branch_fun
     )
     
-    get_data = PythonVirtualenvOperator(
-        task_id='get.data',
-        python_callable=get_data,
-        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
-        system_site_packages=False,
-    )
 
     save_data = PythonVirtualenvOperator(
         task_id='save.data',
@@ -101,9 +96,9 @@ with DAG(
         python_callable=common_get_data,
         system_site_packages=False,
         requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
-        #op_args=["{{ds_nodash}}", "{{ds}}"],
+        #op_args=[1,2,3,4],
         op_kwargs={
-            "url_param": {"multiMovieYn": "Y"}
+            "url_param": {"multiMovieYn": "Y"},
         },
     )
 
@@ -115,6 +110,11 @@ with DAG(
         #op_args=["{{ds_nodash}}", "{{ds}}"],
         op_kwargs={
             "url_param": {"multiMovieYn": "N"}
+            #"ds": "2024-11-11",
+            #"ds_nodash", "2024111"
+            #.
+            #.
+            #.
         }
     )
 
@@ -175,7 +175,7 @@ with DAG(
     branch_op >> rm_dir >> get_start
     branch_op >> get_start
     branch_op >> echo_task
-    get_start >> [get_data, multi_y, multi_n, nation_k, nation_f] >> get_end
+    get_start >> [multi_y, multi_n, nation_k, nation_f] >> get_end
 
     get_end >> save_data >> end
 
