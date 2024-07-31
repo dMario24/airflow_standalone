@@ -19,12 +19,12 @@ from airflow.operators.python import (
 with DAG(
     'movie',
     default_args={
-        'depends_on_past': True,
-        'email_on_failure': False,
-        'email_on_retry': False,
+        'depends_on_past': False,
         'retries': 1,
-        'retry_delay': timedelta(seconds=3)
+        'retry_delay': timedelta(seconds=3),
     },
+    max_active_runs=1,
+    max_active_tasks=3,
     description='movie',
     schedule="10 2 * * *",
     start_date=datetime(2024, 7, 24),
@@ -99,6 +99,12 @@ with DAG(
     
     start = EmptyOperator(task_id='start')
     end = EmptyOperator(task_id='end')
+    
+    multi_y = EmptyOperator(task_id='multi.y') # 다양성 영화 유무
+    multi_n = EmptyOperator(task_id='multi.n')
+    nation_k = EmptyOperator(task_id='nation.k') # 한국외국영화
+    nation_f = EmptyOperator(task_id='nation.f')
+    
     join_task = BashOperator(
             task_id='join',
             bash_command="exit 1",
@@ -109,9 +115,9 @@ with DAG(
     start >> branch_op
     start >> join_task >> save_data
 
-    branch_op >> rm_dir >> get_data
+    branch_op >> rm_dir >> [get_data, multi_y, multi_n, nation_k, nation_f] 
     branch_op >> echo_task >> save_data
-    branch_op >> get_data 
+    branch_op >> [get_data, multi_y, multi_n, nation_k, nation_f]
 
-    get_data >> save_data >> end
+    [get_data, multi_y, multi_n, nation_k, nation_f] >> save_data >> end
 
