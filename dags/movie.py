@@ -61,7 +61,7 @@ with DAG(
         if os.path.exists(path):
             return rm_dir.task_id
         else:
-            return "get.data", "echo.task"
+            return "get.start", "echo.task"
             
 
     branch_op = BranchPythonOperator(
@@ -74,7 +74,6 @@ with DAG(
         python_callable=get_data,
         requirements=["git+https://github.com/dMario24/mov.git@0.3/api"],
         system_site_packages=False,
-        trigger_rule="all_done",
         #venv_cache_path="/home/diginori/tmp2/air_venv/get_data"
     )
 
@@ -105,19 +104,26 @@ with DAG(
     nation_k = EmptyOperator(task_id='nation.k') # 한국외국영화
     nation_f = EmptyOperator(task_id='nation.f')
     
-    join_task = BashOperator(
-            task_id='join',
+    get_start = EmptyOperator(
+                    task_id='get.start',
+                    trigger_rule="all_done"
+                )
+    get_end = EmptyOperator(task_id='get.end')
+    
+    throw_err = BashOperator(
+            task_id='throw.err',
             bash_command="exit 1",
             trigger_rule="all_done"
 
     )
     
     start >> branch_op
-    start >> join_task >> save_data
+    start >> throw_err >> save_data
 
-    branch_op >> rm_dir >> [get_data, multi_y, multi_n, nation_k, nation_f] 
-    branch_op >> echo_task >> save_data
-    branch_op >> [get_data, multi_y, multi_n, nation_k, nation_f]
+    branch_op >> rm_dir >> get_start
+    branch_op >> get_start
+    branch_op >> echo_task
+    get_start >> [get_data, multi_y, multi_n, nation_k, nation_f] >> get_end
 
-    [get_data, multi_y, multi_n, nation_k, nation_f] >> save_data >> end
+    get_end >> save_data >> end
 
