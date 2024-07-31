@@ -1,0 +1,5 @@
+{
+    "CHECK_SH": "/home/diginori/airflow/dags/check.sh",
+    "DB_PASSWD": "qwer123",
+    "MY_NAME": "sawyer"
+}
