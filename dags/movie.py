@@ -37,6 +37,17 @@ with DAG(
         df = save2df(ds_nodash)
         print(df.head(5))
 
+    def common_get_data(ds_nodash, url_param):
+        from mov.api.call import save2df
+        df = save2df(load_dt=ds_nodash, url_param=url_param)
+        print(df[['movieCd', 'movieNm']].head(5))
+        
+        for k, v in url_param.items():
+            df[k] = v
+        
+        p_cols = ['load_dt'] + list(url_param.keys())
+        df.to_parquet('~/tmp/test_parquet', partition_cols=p_cols)
+
     def save_data(ds_nodash):
         from mov.api.call import apply_type2df
         
@@ -72,9 +83,8 @@ with DAG(
     get_data = PythonVirtualenvOperator(
         task_id='get.data',
         python_callable=get_data,
-        requirements=["git+https://github.com/dMario24/mov.git@0.3/api"],
+        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
         system_site_packages=False,
-        #venv_cache_path="/home/diginori/tmp2/air_venv/get_data"
     )
 
     save_data = PythonVirtualenvOperator(
@@ -82,9 +92,54 @@ with DAG(
         python_callable=save_data,
         system_site_packages=False,
         trigger_rule="one_success",
-        requirements=["git+https://github.com/dMario24/mov.git@0.3/api"],
-        #venv_cache_path="/home/diginori/tmp2/air_venv/get_data"
+        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
     )
+
+    # 다양성 영화 유무
+    multi_y = PythonVirtualenvOperator(
+        task_id='multi.y',
+        python_callable=common_get_data,
+        system_site_packages=False,
+        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
+        #op_args=["{{ds_nodash}}", "{{ds}}"],
+        op_kwargs={
+            "url_param": {"multiMovieYn": "Y"}
+        },
+    )
+
+    multi_n = PythonVirtualenvOperator(
+        task_id='multi.n',
+        python_callable=common_get_data,
+        system_site_packages=False,
+        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
+        #op_args=["{{ds_nodash}}", "{{ds}}"],
+        op_kwargs={
+            "url_param": {"multiMovieYn": "N"}
+        }
+    )
+
+    nation_k = PythonVirtualenvOperator(
+        task_id='nation.k',
+        python_callable=common_get_data,
+        system_site_packages=False,
+        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
+        #op_args=["{{ds_nodash}}", "{{ds}}"],
+        op_kwargs={
+            "url_param": {"repNationCd": "K"}
+        }
+    )
+
+    nation_f = PythonVirtualenvOperator(
+        task_id='nation.f',
+        python_callable=common_get_data,
+        system_site_packages=False,
+        requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
+        #op_args=["{{ds_nodash}}", "{{ds}}"],
+        op_kwargs={
+            "url_param": {"repNationCd": "F"}
+        }
+    )
+
 
     rm_dir = BashOperator(
         task_id='rm.dir',
@@ -99,10 +154,7 @@ with DAG(
     start = EmptyOperator(task_id='start')
     end = EmptyOperator(task_id='end')
     
-    multi_y = EmptyOperator(task_id='multi.y') # 다양성 영화 유무
-    multi_n = EmptyOperator(task_id='multi.n')
-    nation_k = EmptyOperator(task_id='nation.k') # 한국외국영화
-    nation_f = EmptyOperator(task_id='nation.f')
+    
     
     get_start = EmptyOperator(
                     task_id='get.start',
