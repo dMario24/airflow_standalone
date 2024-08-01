@@ -8,6 +8,7 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import (
         BranchPythonOperator, 
         PythonVirtualenvOperator,
+        PythonOperator,
 )
 
 with DAG(
@@ -25,15 +26,74 @@ with DAG(
     catchup=True,
     tags=['api', 'movie', 'amt', 'agg', 'summary'],
 ) as dag:
-    def get_empty(id):
-        task = EmptyOperator(task_id=id)
+    REQUIREMENTS = [
+                "git+https://github.com/dMario24/mov.git@0.3.3/url_param",
+                ]
+    def gen_empty(*ids):
+        tasks = []
+        for id in ids:
+            task = EmptyOperator(task_id=id)
+            tasks.append(task)
+        return tuple(tasks) # (t, )
+
+    def gen_vpython(**kw):
+        #task = PythonVirtualenvOperator(
+        task = PythonOperator(
+                task_id=kw['id'],
+                python_callable=kw['fun_obj'],
+                #system_site_packages=False,
+                #requirements=REQUIREMENTS,
+                op_kwargs=kw['op_kw']
+            )
         return task
     
-    start = get_empty('start')
-    end = get_empty('end')
-    apply_type = get_empty('apply.type')
-    merge_df = get_empty('merge.df')
-    de_dup = get_empty('de.dup')
-    summary_df  = get_empty('summary.df')
+    def pro_data(**params):
+        print("@" * 33)
+        print(params['task_name'])
+        print(params) # 여기는 task_name
+        print("@" * 33)
 
-    start >> apply_type >> merge_df >> de_dup >> summary_df >> end
+    def pro_data2(task_name, **params):
+        print("@" * 33)
+        print(task_name)
+        print(params) # 여기는 task_name 없을 것으로 예상
+        print("@" * 33)
+
+    def pro_data3(task_name):
+        print("@" * 33)
+        print(task_name)
+        #print(params) # 여기는 task_name 없을 것으로 예상
+        print("@" * 33)
+    
+    def pro_data4(task_name, ds_nodash, **kwargs):
+        print("@" * 33)
+        print(task_name)
+        print(ds_nodash)
+        print(kwargs) # 여기는 task_name 없을 것으로 예상, ds_nodash 도 없 ...
+        print("@" * 33)
+    
+    start, end = gen_empty('start', 'end')
+    
+    apply_type = gen_vpython(
+            id = "appply.type",
+            fun_obj = pro_data,
+            op_kw = { "task_name": "apply_type!!!" }
+            )
+    merge_df = gen_vpython(
+            id = "merge.df",
+            fun_obj = pro_data2,
+            op_kw = { "task_name": "merge_df!!!" }
+            )
+    de_dup = gen_vpython(
+            id = "de.dup",
+            fun_obj = pro_data3,
+            op_kw = { "task_name": "du_dup!!!" }
+            )
+    summary_df = gen_vpython(
+            id = "summary.df",
+            fun_obj = pro_data4,
+            op_kw = { "task_name": "summary_df!!!" }
+            )
+
+    start >> apply_type >> merge_df
+    merge_df >> de_dup >> summary_df >> end
