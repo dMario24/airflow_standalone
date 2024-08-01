@@ -8,7 +8,6 @@ from airflow.operators.empty import EmptyOperator
 from airflow.operators.python import (
         BranchPythonOperator, 
         PythonVirtualenvOperator,
-
 )
 
 with DAG(
@@ -26,13 +25,15 @@ with DAG(
     catchup=True,
     tags=['api', 'movie', 'amt', 'agg', 'summary'],
 ) as dag:
-    def get_empty(task_id):
-        task = EmptyOperator(task_id="apply.type")
+    def get_empty(id):
+        task = EmptyOperator(task_id=id)
+        return task
     
     start = get_empty('start')
-    end = get_empty('start')
+    end = get_empty('end')
     apply_type = get_empty('apply.type')
-    apply_type = get_empty('merge.df')
-    de_dup = get_empty('de.dup ')
+    merge_df = get_empty('merge.df')
+    de_dup = get_empty('de.dup')
     summary_df  = get_empty('summary.df')
 
+    start >> apply_type >> merge_df >> de_dup >> summary_df >> end
