@@ -96,7 +96,6 @@ with DAG(
         python_callable=common_get_data,
         system_site_packages=False,
         requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
-        #op_args=[1,2,3,4],
         op_kwargs={
             "url_param": {"multiMovieYn": "Y"},
         },
@@ -107,14 +106,8 @@ with DAG(
         python_callable=common_get_data,
         system_site_packages=False,
         requirements=["git+https://github.com/dMario24/mov.git@0.3.3/url_param"],
-        #op_args=["{{ds_nodash}}", "{{ds}}"],
         op_kwargs={
             "url_param": {"multiMovieYn": "N"}
-            #"ds": "2024-11-11",
-            #"ds_nodash", "2024111"
-            #.
-            #.
-            #.
         }
     )
 
