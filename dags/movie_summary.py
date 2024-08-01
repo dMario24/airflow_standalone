@@ -11,6 +11,9 @@ from airflow.operators.python import (
         PythonOperator,
 )
 
+#import pprint
+from pprint import pprint as pp
+
 with DAG(
     'movie_summary',
     default_args={
@@ -50,13 +53,17 @@ with DAG(
     def pro_data(**params):
         print("@" * 33)
         print(params['task_name'])
-        print(params) # 여기는 task_name
+        pp(params) # 여기는 task_name
         print("@" * 33)
 
     def pro_data2(task_name, **params):
         print("@" * 33)
         print(task_name)
-        print(params) # 여기는 task_name 없을 것으로 예상
+        pp(params) # 여기는 task_name 없을 것으로 예상
+        if "task_name" in params.kesy():
+            print("============== 있음")
+        else:
+            print("============== 없음")
         print("@" * 33)
 
     def pro_data3(task_name):
@@ -69,7 +76,7 @@ with DAG(
         print("@" * 33)
         print(task_name)
         print(ds_nodash)
-        print(kwargs) # 여기는 task_name 없을 것으로 예상, ds_nodash 도 없 ...
+        pp(kwargs) # 여기는 task_name 없을 것으로 예상, ds_nodash 도 없 ...
         print("@" * 33)
     
     start, end = gen_empty('start', 'end')
